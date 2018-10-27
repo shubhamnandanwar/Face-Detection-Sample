@@ -5,8 +5,6 @@ import android.graphics.*
 import android.os.Bundle
 import android.provider.MediaStore
 import android.support.v7.app.AppCompatActivity
-import android.util.SparseIntArray
-import android.view.Surface
 import android.view.View
 import com.google.firebase.FirebaseApp
 import com.google.firebase.ml.vision.FirebaseVision
@@ -16,135 +14,107 @@ import com.google.firebase.ml.vision.face.FirebaseVisionFaceContour
 import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
 import kotlinx.android.synthetic.main.activity_main.*
 
-
 class MainActivity : AppCompatActivity() {
 
-    var ORIENTATIONS = SparseIntArray()
-    lateinit var bitmap: Bitmap
+    private lateinit var userBitmap: Bitmap
+    private lateinit var modelBitmap: Bitmap
+    private lateinit var options: FirebaseVisionFaceDetectorOptions
+    private var userRect = RectF()
+    private var modelRect = RectF(588f, 200f, 853f, 515f)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         FirebaseApp.initializeApp(applicationContext)
+        options = FirebaseVisionFaceDetectorOptions.Builder()
+                .setPerformanceMode(FirebaseVisionFaceDetectorOptions.ACCURATE)
+                .setContourMode(FirebaseVisionFaceDetectorOptions.ALL_CONTOURS)
+                .build()
 
-        bitmap = BitmapFactory.decodeResource(resources, R.drawable.sample)
+        userBitmap = BitmapFactory.decodeResource(resources, R.drawable.sample)
+        modelBitmap = BitmapFactory.decodeResource(resources, R.drawable.sample_men)
 
-        ORIENTATIONS.append(Surface.ROTATION_0, 90)
-        ORIENTATIONS.append(Surface.ROTATION_90, 0)
-        ORIENTATIONS.append(Surface.ROTATION_180, 270)
-        ORIENTATIONS.append(Surface.ROTATION_270, 180)
-
-        bitmap = BitmapFactory.decodeResource(resources, R.drawable.sample)
-        val ratio = bitmap.height / bitmap.width.toFloat()
-
-
-        bitmap = Bitmap.createScaledBitmap(bitmap, 360, (360 * ratio).toInt(), false)
-        val image = FirebaseVisionImage.fromBitmap(bitmap)
-        processImage(image)
+        //bitmap = Bitmap.createScaledBitmap(bitmap, 360, (360 * ratio).toInt(), false)
+        processUserFace(FirebaseVisionImage.fromBitmap(userBitmap))
 
         imageView.setOnClickListener {
             loadImagefromGallery()
         }
     }
 
-    fun shapeCrop(src: Bitmap, rect: RectF) {
-        val output = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(output)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    fun swapFaces() {
+        userBitmap = Bitmap.createBitmap(userBitmap, userRect.left.toInt(), userRect.top.toInt(), (userRect.right - userRect.left).toInt(), (userRect.bottom - userRect.top).toInt())
+        userBitmap = Bitmap.createScaledBitmap(userBitmap, modelRect.width().toInt(), modelRect.height().toInt(), false)
+        modelRect.width()
+        var userOutput = Bitmap.createBitmap(userBitmap.width, userBitmap.height, Bitmap.Config.ARGB_8888)
+        var canvas = Canvas(userOutput)
+        var paint = Paint(Paint.ANTI_ALIAS_FLAG)
         paint.color = -0x1000000
+        canvas.drawOval(userRect, paint)
+
+
+        val rect = RectF(0f, 0f, userBitmap.width.toFloat(), userBitmap.height.toFloat())
         canvas.drawOval(rect, paint)
         paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+        canvas.drawBitmap(userBitmap, 0f, 0f, paint)
+        //extraImageView.setImageBitmap(userBitmap)
 
-        canvas.drawBitmap(src, 0f, 0f, paint)
+
+        val output = Bitmap.createBitmap(modelBitmap.width, modelBitmap.height, Bitmap.Config.ARGB_8888)
+        canvas = Canvas(output)
+        paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        paint.color = -0x1000000
+        canvas.drawBitmap(modelBitmap,0f,0f,paint)
+
+        canvas.drawBitmap(userOutput, modelRect.left, modelRect.top, paint)
+
         imageView.setImageBitmap(output)
+        progressBar.visibility = View.GONE
+        statusLabel.text = "Image Processed"
     }
 
-    fun processImage(image: FirebaseVisionImage) {
-        statusLabel.text = "Looking for Face"
-        imageView.setImageBitmap(bitmap)
-
-        // High-accuracy landmark detection and face classification
-        val options = FirebaseVisionFaceDetectorOptions.Builder()
-                .setPerformanceMode(FirebaseVisionFaceDetectorOptions.ACCURATE)
-                .setLandmarkMode(FirebaseVisionFaceDetectorOptions.ALL_LANDMARKS)
-                .setClassificationMode(FirebaseVisionFaceDetectorOptions.ALL_CLASSIFICATIONS)
-                .build()
-
-
-        val detector = FirebaseVision.getInstance()
-                .getVisionFaceDetector(options)
-
-        val result = detector.detectInImage(image)
+    private fun processUserFace(image: FirebaseVisionImage) {
+        statusLabel.text = "Processing User Face"
+        val detector = FirebaseVision.getInstance().getVisionFaceDetector(options)
+        detector.detectInImage(image)
                 .addOnSuccessListener {
-
-                    for (face in it) {
-                        val boundBox = face.boundingBox
-                        if (boundBox != null) {
-                            //TODO - validate bitmap bounds
-                            val x1 = Math.max(0, boundBox.left - 48)
-                            val y1 = Math.max(0, boundBox.top - 48)
-                            val x2 = Math.min(bitmap.width, boundBox.right + 48)
-                            val y2 = Math.min(bitmap.height, boundBox.bottom + 48)
-                            bitmap = Bitmap.createBitmap(bitmap, x1, y1, x2 - x1, y2 - y1)
-                            imageView.setImageBitmap(bitmap)
-                            val image = FirebaseVisionImage.fromBitmap(bitmap!!)
-                            detectFace(image)
-                        }
-
-                    }
-                }
-                .addOnFailureListener {
-                    statusLabel.text = "Something went wrong"
-                }
-    }
-
-    fun detectFace(image: FirebaseVisionImage) {
-        statusLabel.text = "Marking Face"
-        val options = FirebaseVisionFaceDetectorOptions.Builder()
-                .setPerformanceMode(FirebaseVisionFaceDetectorOptions.ACCURATE)
-                .setLandmarkMode(FirebaseVisionFaceDetectorOptions.ALL_LANDMARKS)
-                .setClassificationMode(FirebaseVisionFaceDetectorOptions.ALL_CLASSIFICATIONS)
-                .setContourMode(FirebaseVisionFaceDetectorOptions.ALL_CONTOURS)
-                .build()
-
-
-        val detector = FirebaseVision.getInstance()
-                .getVisionFaceDetector(options)
-
-        val result = detector.detectInImage(image)
-                .addOnSuccessListener {
-                    if (it.size == 0) {
+                    if(it.size == 0){
                         statusLabel.text = "Face not found"
                         progressBar.visibility = View.GONE
                     }
-
                     for (face in it) {
-
                         val faceContourPoints: List<FirebaseVisionPoint> = face.getContour(FirebaseVisionFaceContour.FACE).points
                                 ?: ArrayList()
-
-                        val path = Path()
-
-                        for (i in 1..(faceContourPoints.size - 1)) {
-                            val oldPoint = faceContourPoints.get(i - 1)
-                            val currPoint = faceContourPoints.get(i)
-                            path.moveTo(oldPoint.x, oldPoint.y)
-                            path.lineTo(currPoint.x, currPoint.y)
-                        }
-
-                        path.close()
-                        statusLabel.text = ""
-                        progressBar.visibility = View.GONE
-                        shapeCrop(bitmap, getRect(faceContourPoints))
+                        userRect = getRect(faceContourPoints)
+                        //processModelFace(FirebaseVisionImage.fromBitmap(modelBitmap))
+                        swapFaces()
                     }
                 }
                 .addOnFailureListener {
-                    statusLabel.text = "Something went wrong"
+                    statusLabel.text = "Something went wrong while processing user face"
                 }
     }
 
-    fun getRect(faceContourPoints: List<FirebaseVisionPoint>): RectF {
+    private fun processModelFace(image: FirebaseVisionImage) {
+
+        statusLabel.text = "Processing Model Face"
+        val detector = FirebaseVision.getInstance().getVisionFaceDetector(options)
+        detector.detectInImage(image)
+                .addOnSuccessListener {
+                    for (face in it) {
+                        val faceContourPoints: List<FirebaseVisionPoint> = face.getContour(FirebaseVisionFaceContour.FACE).points
+                                ?: ArrayList()
+                        modelRect = getRect(faceContourPoints)
+                        swapFaces()
+                    }
+                }
+                .addOnFailureListener {
+                    statusLabel.text = "Something went wrong while processing model face"
+                }
+    }
+
+    private fun getRect(faceContourPoints: List<FirebaseVisionPoint>): RectF {
         val rect = RectF(10000f, 10000f, 0f, 0f)
         for (point in faceContourPoints) {
             rect.left = if (rect.left > point.x) point.x else rect.left
@@ -156,7 +126,7 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    fun loadImagefromGallery() {
+    private fun loadImagefromGallery() {
         val galleryIntent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
         startActivityForResult(galleryIntent, 101)
     }
@@ -167,10 +137,12 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == 101 && resultCode == RESULT_OK) {
             val imageUri = data!!.data
             val image = FirebaseVisionImage.fromFilePath(applicationContext, imageUri)
-            bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, imageUri)
+            userBitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, imageUri)
+            imageView.setImageBitmap(null)
+            statusLabel.text = "Processing Image"
+            progressBar.visibility = View.VISIBLE
 
-            processImage(image)
+            processUserFace(image)
         }
-
     }
 }

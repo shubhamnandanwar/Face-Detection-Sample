@@ -5,6 +5,15 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
+<!--
+    <ImageView
+        android:layout_width="128dp"
+        android:layout_height="128dp"
+        android:id="@+id/extraImageView"
+        android:scaleType="fitCenter"
+        android:adjustViewBounds="true"/>
+-->
+
     <ImageView
         android:id="@+id/imageView"
         android:layout_width="300dp"
