@@ -1,0 +1,42 @@
+{
+  "project_info": {
+    "project_number": "820252123972",
+    "firebase_url": "https://dummy-e14d4.firebaseio.com",
+    "project_id": "dummy-e14d4",
+    "storage_bucket": "dummy-e14d4.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:820252123972:android:e691f077f2013547",
+        "android_client_info": {
+          "package_name": "com.shunan.facedetection"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "820252123972-mr73u4bhaoa4pfnki0760091rj37mil7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAJ99hz-ihzXiE3lQw_WexZR6vn1bBRRps"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
